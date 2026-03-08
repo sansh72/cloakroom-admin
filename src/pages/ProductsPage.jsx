@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const CATEGORIES = ['hoodie', 'trouser', 'polo', 'roundneck', 'varsity'];
-const GENDERS = ['men', 'women', 'unisex'];
+const GENDERS = ['men', 'women', 'unisex', 'kids'];
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
 const EMPTY_FORM = {
@@ -29,7 +29,7 @@ const EMPTY_FORM = {
   featured: false,
   customizable: false,
   material: '',
-  stockCount: '',
+  sizeStock: {},
 };
 
 export default function ProductsPage() {
@@ -246,10 +246,36 @@ export default function ProductsPage() {
                   </span>
                   <span className={`text-xs font-medium ${product.inStock ? 'text-green-600' : 'text-red-500'}`}>
                     {product.inStock
-                      ? product.stockCount != null ? `${product.stockCount} in stock` : 'In stock'
+                      ? (() => {
+                          const total = product.sizeStock
+                            ? Object.values(product.sizeStock).reduce((s, v) => s + (Number(v) || 0), 0)
+                            : product.stockCount;
+                          return total != null ? `${total} in stock` : 'In stock';
+                        })()
                       : 'Out of stock'}
                   </span>
                 </div>
+                {product.sizeStock && Object.keys(product.sizeStock).length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {product.sizes?.map((size) => {
+                      const count = Number(product.sizeStock[size]) || 0;
+                      return (
+                        <span
+                          key={size}
+                          className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                            count === 0
+                              ? 'bg-red-50 text-red-500'
+                              : count <= 5
+                              ? 'bg-orange-50 text-orange-500'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {size}: {count}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -320,7 +346,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         featured: product.featured || false,
         customizable: product.customizable || false,
         material: product.material || '',
-        stockCount: product.stockCount?.toString() || '',
+        sizeStock: product.sizeStock || {},
       };
     }
     return { ...EMPTY_FORM };
@@ -342,6 +368,13 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
       sizes: prev.sizes.includes(size)
         ? prev.sizes.filter((s) => s !== size)
         : [...prev.sizes, size],
+    }));
+  };
+
+  const updateSizeStock = (size, value) => {
+    setForm((prev) => ({
+      ...prev,
+      sizeStock: { ...prev.sizeStock, [size]: value },
     }));
   };
 
@@ -418,6 +451,14 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
 
       setUploadProgress('Saving product...');
 
+      // Build sizeStock only for currently selected sizes
+      const sizeStock = {};
+      form.sizes.forEach((size) => {
+        sizeStock[size] = Number(form.sizeStock[size]) || 0;
+      });
+      const totalStock = Object.values(sizeStock).reduce((s, v) => s + v, 0);
+      const hasSizeStock = form.sizes.length > 0;
+
       const productData = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -428,11 +469,12 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         sizes: form.sizes,
         colors: form.colors,
         images: allImageUrls,
-        inStock: form.stockCount ? Number(form.stockCount) > 0 : form.inStock,
+        inStock: hasSizeStock ? totalStock > 0 : form.inStock,
         featured: form.featured,
         customizable: form.customizable,
         material: form.material.trim() || null,
-        stockCount: form.stockCount ? Number(form.stockCount) : null,
+        sizeStock,
+        stockCount: totalStock,
       };
 
       if (isEditing) {
@@ -626,19 +668,34 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
             </div>
           </div>
 
-          {/* Stock Count */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Inventory (number of items available)</label>
-            <input
-              type="number"
-              value={form.stockCount}
-              onChange={(e) => handleChange('stockCount', e.target.value)}
-              placeholder="e.g. 50"
-              min="0"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-            />
-            <p className="text-xs text-gray-400 mt-1">Set to 0 to mark as out of stock</p>
-          </div>
+          {/* Size-wise Stock */}
+          {form.sizes.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Inventory by Size
+                {(() => {
+                  const total = form.sizes.reduce((s, sz) => s + (Number(form.sizeStock[sz]) || 0), 0);
+                  return total > 0 ? <span className="ml-2 text-xs text-gray-400 font-normal">Total: {total} units</span> : null;
+                })()}
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {form.sizes.map((size) => (
+                  <div key={size}>
+                    <label className="block text-xs text-gray-500 mb-1 font-medium">{size}</label>
+                    <input
+                      type="number"
+                      value={form.sizeStock[size] ?? ''}
+                      onChange={(e) => updateSizeStock(size, e.target.value)}
+                      placeholder="0"
+                      min="0"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Set all sizes to 0 to mark as out of stock</p>
+            </div>
+          )}
 
           {/* Toggles */}
           <div className="flex gap-6">
