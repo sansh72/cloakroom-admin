@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getMergedOrders, updateOrderTrackingStatus } from '../services/orderService';
+import { getMergedOrders, updateOrderTrackingStatus, updateOrderPrice } from '../services/orderService';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import {
   Search,
   RefreshCw,
@@ -12,6 +14,7 @@ import {
   XCircle,
   Clock,
   X,
+  Download,
 } from 'lucide-react';
 
 const ORDER_STATUSES = ['PENDING', 'ACCEPTED', 'PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
@@ -51,6 +54,7 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [updateModal, setUpdateModal] = useState(null);
+  const [updatePrice, setUpdatePrice] = useState(null)
   const [toast, setToast] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ORDERS_PER_PAGE = 10;
@@ -218,7 +222,7 @@ export default function OrdersPage() {
                     <p className="text-sm font-semibold text-gray-900">
                       {order.total != null ? `₹${order.total.toLocaleString()}` : '—'}
                     </p>
-                    <StatusBadge status={status} />
+                    {/* <StatusBadge status={status} /> */}
                     {isExpanded ? (
                       <ChevronUp size={18} className="text-gray-400" />
                     ) : (
@@ -249,6 +253,46 @@ export default function OrdersPage() {
                           </div>
                         ) : (
                           <p className="text-sm text-gray-400">No address</p>
+                        )}
+                        {isCustom && order.designUrls && order.designUrls.length > 0 && (
+                          <div className="mt-4">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const btn = e.currentTarget;
+                                btn.disabled = true;
+                                btn.textContent = 'Zipping...';
+                                try {
+                                  const zip = new JSZip();
+                                  for (const url of order.designUrls) {
+                                    const res = await fetch(url);
+                                    const blob = await res.blob();
+                                    // Parse folder structure from URL
+                                    // URL looks like: .../hoodie-designs/{orderId}/screenshots/front-view.png
+                                    // or: .../hoodie-designs/{orderId}/assets/front-images/image-1.png
+                                    const parts = url.split('/');
+                                    const orderIdIdx = parts.findIndex((p) => p === order.id);
+                                    const relativePath = orderIdIdx >= 0
+                                      ? parts.slice(orderIdIdx + 1).join('/')
+                                      : parts[parts.length - 1];
+                                    zip.file(relativePath, blob);
+                                  }
+                                  const content = await zip.generateAsync({ type: 'blob' });
+                                  saveAs(content, `design-${order.id.slice(0, 8)}.zip`);
+                                } catch (err) {
+                                  console.error('Failed to download designs:', err);
+                                  showToast('Failed to download designs', 'error');
+                                } finally {
+                                  btn.disabled = false;
+                                  btn.textContent = `Download Designs (${order.designUrls.length} files)`;
+                                }
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg text-sm font-medium hover:bg-violet-700 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              <Download size={16} />
+                              Download Designs ({order.designUrls.length} files)
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -360,6 +404,18 @@ export default function OrdersPage() {
                         >
                           Update Status
                         </button>
+                        {isCustom &&(
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUpdatePrice(order);
+                          }}
+                          className="mt-4 w-full px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
+                        >
+                          Update Price
+                        </button>
+                      )}
+
                       </div>
                     </div>
                   </div>
@@ -434,6 +490,19 @@ export default function OrdersPage() {
           onError={(msg) => showToast(msg, 'error')}
         />
       )}
+      {updatePrice && (
+        <UpdatePriceModal
+          order={updatePrice}
+          onClose={() => setUpdatePrice(null)}
+          onUpdated={() => {
+            setUpdatePrice(null);
+            fetchOrders();
+            showToast('Order price updated');
+          }}
+          onError={(msg) => showToast(msg, 'error')}
+        />
+      )}
+
     </div>
   );
 }
@@ -558,6 +627,75 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
             className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 cursor-pointer"
           >
             {saving ? 'Updating...' : 'Update Status'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpdatePriceModal({ order, onClose, onUpdated, onError }) {
+  const [price, setPrice] = useState(order.total != null ? order.total : '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    const parsed = Number(price);
+    if (isNaN(parsed) || parsed < 0) return;
+    try {
+      setSaving(true);
+      await updateOrderPrice(order.id, parsed);
+      onUpdated();
+    } catch (err) {
+      onError('Failed to update price');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-semibold text-gray-900">Update Price</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X size={20} />
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-500 mb-4">Order #{order.id.slice(0, 14)}...</p>
+
+        {order.total != null && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-500 mb-1">Current Price</p>
+            <p className="text-sm font-semibold text-gray-900">₹{order.total.toLocaleString()}</p>
+          </div>
+        )}
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-1">New Price (₹)</label>
+          <input
+            type="number"
+            min="0"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="Enter new price"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || price === '' || Number(price) < 0}
+            className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 cursor-pointer"
+          >
+            {saving ? 'Updating...' : 'Update Price'}
           </button>
         </div>
       </div>

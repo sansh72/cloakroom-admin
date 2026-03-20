@@ -14,6 +14,17 @@ import {
 const CATEGORIES = ['hoodie', 'trouser', 'polo', 'roundneck', 'varsity'];
 const GENDERS = ['men', 'women', 'unisex', 'kids'];
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const KIDS_SIZES = ['20', '22', '24', '26', '28', '30', '32', '34'];
+const KIDS_SIZE_LABELS = {
+  '20': '20 (2-3 yrs)',
+  '22': '22 (3-4 yrs)',
+  '24': '24 (4-5 yrs)',
+  '26': '26 (5-6 yrs)',
+  '28': '28 (7-8 yrs)',
+  '30': '30 (9-10 yrs)',
+  '32': '32 (11-12 yrs)',
+  '34': '34 (13-14 yrs)',
+};
 
 const EMPTY_FORM = {
   name: '',
@@ -359,7 +370,15 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
   const [uploadProgress, setUploadProgress] = useState('');
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [field]: value };
+      // Clear sizes when switching gender (kids has different size chart)
+      if (field === 'gender' && value !== prev.gender) {
+        updated.sizes = [];
+        updated.sizeStock = {};
+      }
+      return updated;
+    });
   };
 
   const toggleSize = (size) => {
@@ -600,7 +619,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Sizes</label>
             <div className="flex flex-wrap gap-2">
-              {SIZES.map((size) => (
+              {(form.gender === 'kids' ? KIDS_SIZES : SIZES).map((size) => (
                 <button
                   key={size}
                   type="button"
@@ -611,7 +630,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
                       : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
-                  {size}
+                  {form.gender === 'kids' ? (KIDS_SIZE_LABELS[size] || size) : size}
                 </button>
               ))}
             </div>

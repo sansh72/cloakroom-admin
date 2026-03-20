@@ -112,6 +112,15 @@ export const updateOrderTrackingStatus = async (orderId, newStatus, notes, addit
   });
 };
 
+// ─── Update order price (for custom orders) ───
+export const updateOrderPrice = async (orderId, newPrice) => {
+  const orderRef = doc(db, ORDERS_COLLECTION, orderId);
+  await updateDoc(orderRef, {
+    total: newPrice,
+    updatedAt: serverTimestamp(),
+  });
+};
+
 // ─── Get single order tracking ───
 export const getOrderTracking = async (orderId) => {
   const trackingRef = doc(db, TRACKING_COLLECTION, orderId);
