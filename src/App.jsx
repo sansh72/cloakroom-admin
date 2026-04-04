@@ -6,6 +6,8 @@ import UsersPage from './pages/UsersPage';
 import OrdersPage from './pages/OrdersPage';
 import ProductsPage from './pages/ProductsPage';
 import AllowedUsersPage from './pages/AllowedUsersPage';
+import ReviewsPage from './pages/ReviewsPage';
+import CustomizationPage from './pages/CustomizationPage';
 
 function LoginRoute() {
   const { currentUser, isAdmin, loading } = useAuth();
@@ -25,6 +27,8 @@ function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="allowed-users" element={<AllowedUsersPage />} />
+            <Route path="reviews" element={<ReviewsPage />} />
+            <Route path="customization" element={<CustomizationPage />} />
           </Route>
         </Routes>
       </AuthProvider>

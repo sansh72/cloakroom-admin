@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Users, Package, ShoppingBag, Shield, LogOut } from 'lucide-react';
+import { Users, Package, ShoppingBag, Shield, LogOut, Star, Palette } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
@@ -7,6 +7,8 @@ const navItems = [
   { to: '/orders', icon: Package, label: 'Order Tracking' },
   { to: '/products', icon: ShoppingBag, label: 'Products' },
   { to: '/allowed-users', icon: Shield, label: 'Allowed Users' },
+  { to: '/reviews', icon: Star, label: 'Reviews' },
+  { to: '/customization', icon: Palette, label: 'Customization' },
 ];
 
 export default function Sidebar() {
