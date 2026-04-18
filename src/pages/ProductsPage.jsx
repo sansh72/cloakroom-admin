@@ -107,7 +107,12 @@ export default function ProductsPage() {
     const matchesSearch =
       (p.name || '').toLowerCase().includes(term) ||
       (p.category || '').toLowerCase().includes(term);
-    const matchesCategory = categoryFilter === 'ALL' || p.category === categoryFilter;
+    const matchesCategory =
+      categoryFilter === 'ALL'
+        ? true
+        : categoryFilter === 'FEATURED'
+        ? p.featured === true
+        : p.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -156,6 +161,16 @@ export default function ProductsPage() {
           }`}
         >
           All ({products.length})
+        </button>
+        <button
+          onClick={() => setCategoryFilter('FEATURED')}
+          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+            categoryFilter === 'FEATURED'
+              ? 'bg-amber-500 text-white'
+              : 'bg-white border border-amber-300 text-amber-600 hover:bg-amber-50'
+          }`}
+        >
+          ★ Featured ({products.filter((p) => p.featured).length})
         </button>
         {CATEGORIES.map((c) => (
           <button

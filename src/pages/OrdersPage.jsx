@@ -277,6 +277,26 @@ export default function OrdersPage() {
                                       : parts[parts.length - 1];
                                     zip.file(relativePath, blob);
                                   }
+                                  // Include font details as a txt file if present
+                                  if (order.fontDetails) {
+                                    const lines = [`Font Details for Order: ${order.id}`, ''];
+                                    if (order.fontDetails.front) {
+                                      lines.push('--- FRONT ---');
+                                      lines.push(`Text:        ${order.fontDetails.front.text}`);
+                                      lines.push(`Font Family: ${order.fontDetails.front.fontFamily}`);
+                                      lines.push(`Font Size:   ${order.fontDetails.front.fontSize}px`);
+                                      lines.push(`Color:       ${order.fontDetails.front.color}`);
+                                      lines.push('');
+                                    }
+                                    if (order.fontDetails.back) {
+                                      lines.push('--- BACK ---');
+                                      lines.push(`Text:        ${order.fontDetails.back.text}`);
+                                      lines.push(`Font Family: ${order.fontDetails.back.fontFamily}`);
+                                      lines.push(`Font Size:   ${order.fontDetails.back.fontSize}px`);
+                                      lines.push(`Color:       ${order.fontDetails.back.color}`);
+                                    }
+                                    zip.file('font-details.txt', lines.join('\n'));
+                                  }
                                   const content = await zip.generateAsync({ type: 'blob' });
                                   saveAs(content, `design-${order.id.slice(0, 8)}.zip`);
                                 } catch (err) {
@@ -322,6 +342,49 @@ export default function OrdersPage() {
                           <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between text-sm font-semibold">
                             <span>Total</span>
                             <span>₹{order.total.toLocaleString()}</span>
+                          </div>
+                        )}
+
+                        {/* Download product images */}
+                        {order.items && order.items.some(item => item.product?.images?.length > 0) && (
+                          <div className="mt-3">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const btn = e.currentTarget;
+                                btn.disabled = true;
+                                btn.textContent = 'Zipping...';
+                                try {
+                                  const zip = new JSZip();
+                                  for (const item of order.items) {
+                                    const images = item.product?.images || [];
+                                    const productName = (item.product?.name || 'product')
+                                      .replace(/\s+/g, '-').toLowerCase();
+                                    const folder = zip.folder(productName);
+                                    for (let idx = 0; idx < images.length; idx++) {
+                                      const url = images[idx];
+                                      const res = await fetch(url);
+                                      const blob = await res.blob();
+                                      const ext = url.split('.').pop().split('?')[0] || 'jpg';
+                                      folder.file(`image-${idx + 1}.${ext}`, blob);
+                                    }
+                                  }
+                                  const content = await zip.generateAsync({ type: 'blob' });
+                                  saveAs(content, `assets-${order.id.slice(0, 8)}.zip`);
+                                } catch (err) {
+                                  console.error('Failed to download assets:', err);
+                                  showToast('Failed to download assets', 'error');
+                                } finally {
+                                  btn.disabled = false;
+                                  const totalImages = order.items.reduce((s, item) => s + (item.product?.images?.length || 0), 0);
+                                  btn.textContent = `Download Assets (${totalImages} images)`;
+                                }
+                              }}
+                              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50 transition-colors cursor-pointer"
+                            >
+                              <Download size={16} />
+                              Download Assets ({order.items.reduce((s, item) => s + (item.product?.images?.length || 0), 0)} images)
+                            </button>
                           </div>
                         )}
                       </div>
