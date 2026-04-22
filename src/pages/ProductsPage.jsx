@@ -11,7 +11,7 @@ import {
   ImageIcon,
 } from 'lucide-react';
 
-const CATEGORIES = ['hoodie', 'trouser', 'polo', 'roundneck', 'varsity'];
+const CATEGORIES = ['hoodie', 'trouser', 'polo', 'roundneck', 'varsity', 'sweatshirt'];
 const GENDERS = ['men', 'women', 'unisex', 'kids'];
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const KIDS_SIZES = ['20', '22', '24', '26', '28', '30', '32', '34'];
