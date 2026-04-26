@@ -26,10 +26,18 @@ export default function HeroImagesPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const FALLBACK_URLS = [
+    'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529278/hero/cloakroom-1.png',
+    'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529293/hero/cloakroom-4.png',
+    'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529297/hero/cloakroom-main.png',
+  ];
+
   useEffect(() => {
     getDoc(doc(db, 'appConfig', 'heroImages')).then(snap => {
       if (snap.exists()) {
-        setUrls(snap.data().urls || []);
+        setUrls(snap.data().urls || FALLBACK_URLS);
+      } else {
+        setUrls(FALLBACK_URLS);
       }
     });
   }, []);

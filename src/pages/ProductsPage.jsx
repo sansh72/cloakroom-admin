@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { subscribeToProducts, addProduct, updateProduct, deleteProduct } from '../services/productService';
 import { uploadImages } from '../services/cloudinaryService';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import {
   Plus,
   Search,
@@ -9,11 +11,47 @@ import {
   X,
   Upload,
   ImageIcon,
+  Shirt,
 } from 'lucide-react';
 
-const CATEGORIES = ['hoodie', 'trouser', 'polo', 'roundneck', 'varsity', 'sweatshirt'];
+const CDN = 'https://res.cloudinary.com/dlxv7oikk/image/upload/w_800,q_auto,f_auto/graphic-tees';
+const GT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+const GT_STOCK = 50;
+
+const GRAPHIC_TEES_SEED = [
+  { name: '10 wala biscuit ka packet', image: `${CDN}/10-wala-biscuit-ka-packet.png`, tags: ['Funny'] },
+  { name: 'Award Anshuman', image: `${CDN}/award-anshuman.png`, tags: ['Pop Culture'] },
+  { name: 'Brain buffering', image: `${CDN}/brain-buffering.png`, tags: ['Tech Humor'] },
+  { name: 'Buffering Life Decisions', image: `${CDN}/buffering-life-decisions-t-shirt.png`, tags: ['Life'] },
+  { name: 'Chill not found', image: `${CDN}/chill-not-found.png`, tags: ['Tech Humor'] },
+  { name: 'Coping mechanism', image: `${CDN}/coping-mechanism.png`, tags: ['Life'] },
+  { name: 'Current emotion', image: `${CDN}/current-emotion.png`, tags: ['Mood'] },
+  { name: 'Did I ask for this meeting', image: `${CDN}/did-i-ask-for-this-meeting.png`, tags: ['Work'] },
+  { name: 'Getting life together', image: `${CDN}/getting-life-together.png`, tags: ['Life'] },
+  { name: 'Hang in there', image: `${CDN}/hang-in-there.png`, tags: ['Motivational'] },
+  { name: 'Introverting', image: `${CDN}/introverting.png`, tags: ['Personality'] },
+  { name: 'Loading Confidence', image: `${CDN}/loading-confidence.png`, tags: ['Tech Humor'] },
+  { name: 'Low Battery', image: `${CDN}/low-battery.png`, tags: ['Tech Humor'] },
+  { name: 'Mentally Exhausted', image: `${CDN}/mentally-exhausted.png`, tags: ['Mood'] },
+  { name: 'My Anxiety', image: `${CDN}/my-anxiety.png`, tags: ['Mood'] },
+  { name: 'Naukri Jaaye', image: `${CDN}/naukri-jaaye.png`, tags: ['Work'] },
+  { name: 'Offline', image: `${CDN}/offline.png`, tags: ['Tech Humor'] },
+  { name: 'Panic Era', image: `${CDN}/panic-era.png`, tags: ['Mood'] },
+  { name: 'Running on Caffeine', image: `${CDN}/running-on-caeffiene.png`, tags: ['Life'] },
+  { name: 'Social Battery', image: `${CDN}/social-battery.png`, tags: ['Personality'] },
+  { name: 'Too Late', image: `${CDN}/too-late.png`, tags: ['Life'] },
+  { name: 'Too many tabs', image: `${CDN}/too-many-tabs.png`, tags: ['Tech Humor'] },
+  { name: 'Trust Issues', image: `${CDN}/trust-issues.png`, tags: ['Life'] },
+  { name: 'Tu 13 Dekh', image: `${CDN}/tu-13-dekh.png`, tags: ['Funny'] },
+  { name: 'Under Maintenance 2', image: `${CDN}/under-maintenance-2.png`, tags: ['Tech Humor'] },
+  { name: 'Under maintenance', image: `${CDN}/under-maintenance.png`, tags: ['Tech Humor'] },
+  { name: 'Wifi vibe', image: `${CDN}/wifi-vibe.png`, tags: ['Tech Humor'] },
+];
+
+const CATEGORIES = ['tshirt', 'hoodie', 'trouser', 'polo', 'roundneck', 'varsity', 'sweatshirt'];
+const CATEGORY_LABELS = { tshirt: 'Graphic Tees' };
 const GENDERS = ['men', 'women', 'unisex', 'kids'];
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 const KIDS_SIZES = ['20', '22', '24', '26', '28', '30', '32', '34'];
 const KIDS_SIZE_LABELS = {
   '20': '20 (2-3 yrs)',
@@ -25,6 +63,8 @@ const KIDS_SIZE_LABELS = {
   '32': '32 (11-12 yrs)',
   '34': '34 (13-14 yrs)',
 };
+
+const FIT_OPTIONS = ['regular', 'baggy', 'slim', 'oversized'];
 
 const EMPTY_FORM = {
   name: '',
@@ -40,6 +80,8 @@ const EMPTY_FORM = {
   featured: false,
   customizable: false,
   material: '',
+  fit: '',
+  sizeAndFit: '',
   sizeStock: {},
 };
 
@@ -102,6 +144,47 @@ export default function ProductsPage() {
     showToast(wasEditing ? 'Product updated' : 'Product added');
   };
 
+  const [seeding, setSeeding] = useState(false);
+  const seedGraphicTees = async () => {
+    if (!window.confirm(`This will add ${GRAPHIC_TEES_SEED.length} graphic tees to Firestore. Already-seeded ones will be skipped. Continue?`)) return;
+    setSeeding(true);
+    try {
+      const existing = await getDocs(query(collection(db, 'products'), where('graphicTee', '==', true)));
+      const existingNames = new Set(existing.docs.map(d => d.data().name));
+      let added = 0;
+      for (const tee of GRAPHIC_TEES_SEED) {
+        if (existingNames.has(tee.name)) continue;
+        const sizeStock = {};
+        GT_SIZES.forEach(s => { sizeStock[s] = GT_STOCK; });
+        await addProduct({
+          name: tee.name,
+          description: `Graphic Tee — ${tee.name}`,
+          category: 'tshirt',
+          gender: 'unisex',
+          price: 499,
+          discountPrice: null,
+          images: [tee.image],
+          colors: [{ name: 'White', hex: '#ffffff' }],
+          sizes: GT_SIZES,
+          sizeStock,
+          stockCount: GT_SIZES.length * GT_STOCK,
+          inStock: true,
+          featured: false,
+          customizable: false,
+          material: '100% Cotton',
+          tags: tee.tags,
+          graphicTee: true,
+        });
+        added++;
+      }
+      showToast(`Seeded ${added} graphic tees${added < GRAPHIC_TEES_SEED.length ? ` (${GRAPHIC_TEES_SEED.length - added} already existed)` : ''}`);
+    } catch (err) {
+      showToast('Seed failed: ' + err.message, 'error');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const filteredProducts = products.filter((p) => {
     const term = search.toLowerCase();
     const matchesSearch =
@@ -140,6 +223,14 @@ export default function ProductsPage() {
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             Live
           </div>
+          <button
+            onClick={seedGraphicTees}
+            disabled={seeding}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <Shirt size={16} />
+            {seeding ? 'Seeding...' : 'Seed Graphic Tees'}
+          </button>
           <button
             onClick={() => { setEditingProduct(null); setShowForm(true); }}
             className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors cursor-pointer"
@@ -182,7 +273,7 @@ export default function ProductsPage() {
                 : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {c} ({products.filter((p) => p.category === c).length})
+            {CATEGORY_LABELS[c] || c} ({products.filter((p) => p.category === c).length})
           </button>
         ))}
       </div>
@@ -372,6 +463,8 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         featured: product.featured || false,
         customizable: product.customizable || false,
         material: product.material || '',
+        fit: product.fit || '',
+        sizeAndFit: product.sizeAndFit || '',
         sizeStock: product.sizeStock || {},
       };
     }
@@ -507,6 +600,8 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         featured: form.featured,
         customizable: form.customizable,
         material: form.material.trim() || null,
+        fit: form.fit || null,
+        sizeAndFit: form.sizeAndFit.trim() || null,
         sizeStock,
         stockCount: totalStock,
       };
@@ -626,6 +721,39 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
               value={form.material}
               onChange={(e) => handleChange('material', e.target.value)}
               placeholder="e.g. 100% Cotton, Polyester blend"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+          </div>
+
+          {/* Fit */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Fit <span className="text-gray-400">optional</span></label>
+            <div className="flex flex-wrap gap-2">
+              {FIT_OPTIONS.map((fit) => (
+                <button
+                  key={fit}
+                  type="button"
+                  onClick={() => handleChange('fit', form.fit === fit ? '' : fit)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer capitalize ${
+                    form.fit === fit
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {fit}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Size & Fit Note */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Size &amp; Fit Note <span className="text-gray-400">optional</span></label>
+            <input
+              type="text"
+              value={form.sizeAndFit}
+              onChange={(e) => handleChange('sizeAndFit', e.target.value)}
+              placeholder="e.g. Model is 6'0 wearing size L — true to size, regular fit"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             />
           </div>

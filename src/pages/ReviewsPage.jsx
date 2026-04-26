@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, addDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Star, Check, X, Trash2 } from 'lucide-react';
+import { Star, Check, X, Trash2, Database } from 'lucide-react';
+
+const DEFAULT_REVIEWS = [
+  { name: 'Arjun Mehta', email: 'arjun@example.com', role: 'College Fest Organizer', rating: 5, message: "Ordered 150 custom hoodies for our college fest and the quality was absolutely insane. The prints didn't fade even after multiple washes. CloakRoom literally saved our event merch game." },
+  { name: 'Priya Sharma', email: 'priya@example.com', role: 'HR Manager, TechCorp', rating: 5, message: "We needed 200 branded polo t-shirts for a corporate marathon and CloakRoom delivered on time with premium quality. The bulk pricing was unbeatable. Our entire team was impressed." },
+  { name: 'Rohit Verma', email: 'rohit@example.com', role: 'Graphic Designer', rating: 5, message: "The 3D customization tool is next level — I could see exactly how my design would look on the hoodie before ordering. The final product matched the preview perfectly. Mind blown." },
+  { name: 'Sneha Kapoor', email: 'sneha@example.com', role: 'Startup Founder', rating: 5, message: "Got varsity jackets made for my entire team of 30. The embroidery quality was premium and everyone absolutely loved them. CloakRoom made our company swag actually cool for once." },
+  { name: 'Vikram Patel', email: 'vikram@example.com', role: 'Regular Customer', rating: 4, message: "Been buying graphic tees from CloakRoom for months now. Super comfortable fabric and the designs are genuinely unique — not the same recycled stuff you see on every other brand." },
+  { name: 'Ananya Iyer', email: 'ananya@example.com', role: 'School Coordinator', rating: 5, message: "Ordered polo t-shirts for our school's annual sports day. The kids loved the vibrant colors, the material was durable, and delivery was 2 days early. Already planning next year's order!" },
+];
 
 const REVIEWS_COLLECTION = 'reviews';
 
@@ -50,6 +59,24 @@ export default function ReviewsPage() {
 
   const pendingCount = reviews.filter(r => !r.approved).length;
 
+  const seedDefaultReviews = async () => {
+    const existing = await getDocs(query(collection(db, REVIEWS_COLLECTION), where('seeded', '==', true)));
+    if (existing.docs.length > 0) {
+      alert('Default reviews already seeded.');
+      return;
+    }
+    for (const r of DEFAULT_REVIEWS) {
+      await addDoc(collection(db, REVIEWS_COLLECTION), {
+        ...r,
+        approved: true,
+        seeded: true,
+        createdAt: serverTimestamp(),
+      });
+    }
+    await loadReviews();
+    alert('Default reviews seeded successfully.');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -67,6 +94,12 @@ export default function ReviewsPage() {
             {reviews.length} total • {pendingCount} pending approval
           </p>
         </div>
+        <button
+          onClick={seedDefaultReviews}
+          className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
+        >
+          Seed Default Reviews
+        </button>
       </div>
 
       {/* Filter tabs */}
