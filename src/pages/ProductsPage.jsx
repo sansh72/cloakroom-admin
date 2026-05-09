@@ -83,6 +83,7 @@ const EMPTY_FORM = {
   fit: '',
   sizeAndFit: '',
   sizeStock: {},
+  tags: [],
 };
 
 export default function ProductsPage() {
@@ -339,9 +340,11 @@ export default function ProductsPage() {
                 </div>
                 <h3 className="font-medium text-gray-900 text-sm mt-2 truncate">{product.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-semibold text-gray-900">₹{product.price}</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    ₹{product.discountPrice || product.price}
+                  </span>
                   {product.discountPrice && (
-                    <span className="text-xs text-gray-400 line-through">₹{product.discountPrice}</span>
+                    <span className="text-xs text-gray-400 line-through">₹{product.price}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-2">
@@ -466,6 +469,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         fit: product.fit || '',
         sizeAndFit: product.sizeAndFit || '',
         sizeStock: product.sizeStock || {},
+        tags: product.tags || [],
       };
     }
     return { ...EMPTY_FORM };
@@ -476,6 +480,25 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
   const [colorInput, setColorInput] = useState({ name: '', hex: '#000000' });
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState('');
+  const [availableTags, setAvailableTags] = useState([]);
+  // Per-color image upload state — keyed by color index
+  const [colorNewFiles, setColorNewFiles] = useState({});
+  const [colorPreviews, setColorPreviews] = useState(() => {
+    const map = {};
+    (product?.colors || []).forEach((c, i) => { map[i] = c.images || []; });
+    return map;
+  });
+
+  useEffect(() => {
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      getDoc(doc(db, 'settings', 'graphicTeeTags')).then(snap => {
+        if (snap.exists()) setAvailableTags(snap.data().tags || []);
+        else setAvailableTags(['Tech Humor','Life','Mood','Work','Funny','Personality','Pop Culture','Motivational']);
+      }).catch(() => {
+        setAvailableTags(['Tech Humor','Life','Mood','Work','Funny','Personality','Pop Culture','Motivational']);
+      });
+    });
+  }, []);
 
   const handleChange = (field, value) => {
     setForm((prev) => {
@@ -509,9 +532,59 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
     if (!colorInput.name.trim()) return;
     setForm((prev) => ({
       ...prev,
-      colors: [...prev.colors, { name: colorInput.name.trim(), hex: colorInput.hex }],
+      colors: [...prev.colors, { name: colorInput.name.trim(), hex: colorInput.hex, stock: 0, images: [] }],
     }));
     setColorInput({ name: '', hex: '#000000' });
+  };
+
+  const updateColorField = (index, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      colors: prev.colors.map((c, i) => (i === index ? { ...c, [field]: value } : c)),
+    }));
+  };
+
+  const handleColorImageSelect = (colorIndex, files) => {
+    const arr = Array.from(files);
+    if (arr.length === 0) return;
+    setColorNewFiles((prev) => ({
+      ...prev,
+      [colorIndex]: [...(prev[colorIndex] || []), ...arr],
+    }));
+    arr.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setColorPreviews((prev) => ({
+          ...prev,
+          [colorIndex]: [...(prev[colorIndex] || []), ev.target.result],
+        }));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeColorImage = (colorIndex, imageIndex) => {
+    const existingCount = (form.colors[colorIndex]?.images || []).length;
+    if (imageIndex < existingCount) {
+      // Existing URL — remove from form.colors[i].images
+      setForm((prev) => ({
+        ...prev,
+        colors: prev.colors.map((c, i) =>
+          i === colorIndex ? { ...c, images: (c.images || []).filter((_, j) => j !== imageIndex) } : c,
+        ),
+      }));
+    } else {
+      // New file — remove from colorNewFiles
+      const fileIdx = imageIndex - existingCount;
+      setColorNewFiles((prev) => ({
+        ...prev,
+        [colorIndex]: (prev[colorIndex] || []).filter((_, j) => j !== fileIdx),
+      }));
+    }
+    setColorPreviews((prev) => ({
+      ...prev,
+      [colorIndex]: (prev[colorIndex] || []).filter((_, j) => j !== imageIndex),
+    }));
   };
 
   const removeColor = (index) => {
@@ -567,14 +640,35 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
       setSaving(true);
 
       // Upload new files to Cloudinary
+      const productSlug = form.name.trim().replace(/\s+/g, '-').toLowerCase();
       let allImageUrls = [...form.images];
       if (newFiles.length > 0) {
         setUploadProgress(`Uploading ${newFiles.length} image${newFiles.length > 1 ? 's' : ''}...`);
-        const productSlug = form.name.trim().replace(/\s+/g, '-').toLowerCase();
         const folder = `products/${form.gender}/${productSlug}`;
         const uploadedUrls = await uploadImages(newFiles, folder);
         allImageUrls = [...allImageUrls, ...uploadedUrls];
       }
+
+      // Upload per-color images and merge into colors[]
+      const colorsWithImages = await Promise.all(
+        form.colors.map(async (c, i) => {
+          const pendingFiles = colorNewFiles[i] || [];
+          let imageUrls = [...(c.images || [])];
+          if (pendingFiles.length > 0) {
+            setUploadProgress(`Uploading ${c.name} images…`);
+            const colorSlug = c.name.trim().replace(/\s+/g, '-').toLowerCase();
+            const folder = `products/${form.gender}/${productSlug}/colors/${colorSlug}`;
+            const uploaded = await uploadImages(pendingFiles, folder);
+            imageUrls = [...imageUrls, ...uploaded];
+          }
+          return {
+            name: c.name,
+            hex: c.hex,
+            stock: Number(c.stock) || 0,
+            images: imageUrls,
+          };
+        }),
+      );
 
       setUploadProgress('Saving product...');
 
@@ -594,7 +688,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         price: Number(form.price),
         discountPrice: form.discountPrice ? Number(form.discountPrice) : null,
         sizes: form.sizes,
-        colors: form.colors,
+        colors: colorsWithImages,
         images: allImageUrls,
         inStock: hasSizeStock ? totalStock > 0 : form.inStock,
         featured: form.featured,
@@ -604,6 +698,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         sizeAndFit: form.sizeAndFit.trim() || null,
         sizeStock,
         stockCount: totalStock,
+        tags: form.tags.length > 0 ? form.tags : null,
       };
 
       if (isEditing) {
@@ -701,7 +796,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Discount Price (₹) <span className="text-gray-400">optional</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Discounted Price (₹) <span className="text-gray-400">optional</span></label>
               <input
                 type="number"
                 value={form.discountPrice}
@@ -732,7 +827,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
               {FIT_OPTIONS.map((fit) => (
                 <button
                   key={fit}
-                  type="button"
+                 
                   onClick={() => handleChange('fit', form.fit === fit ? '' : fit)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer capitalize ${
                     form.fit === fit
@@ -758,6 +853,36 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
             />
           </div>
 
+          {/* Tags */}
+          {availableTags.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tags <span className="text-gray-400">optional</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => {
+                      const current = form.tags.includes(tag)
+                        ? form.tags.filter(t => t !== tag)
+                        : [...form.tags, tag];
+                      handleChange('tags', current);
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                      form.tags.includes(tag)
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Sizes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Sizes</label>
@@ -782,30 +907,9 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
           {/* Colors */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Colors</label>
-            {form.colors.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {form.colors.map((color, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg border border-gray-200"
-                  >
-                    <div
-                      className="w-4 h-4 rounded-full border border-gray-300"
-                      style={{ backgroundColor: color.hex }}
-                    />
-                    <span className="text-sm text-gray-700">{color.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeColor(i)}
-                      className="text-gray-400 hover:text-red-500 cursor-pointer"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="flex items-center gap-2">
+
+            {/* Color input row */}
+            <div className="flex items-center gap-2 mb-3">
               <input
                 type="color"
                 value={colorInput.hex}
@@ -828,6 +932,75 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
                 Add
               </button>
             </div>
+
+            {/* Per-color rows: stock + images */}
+            {form.colors.length > 0 && (
+              <div className="space-y-3">
+                {form.colors.map((color, i) => {
+                  const previewList = colorPreviews[i] || color.images || [];
+                  return (
+                    <div key={i} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div
+                          className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0"
+                          style={{ backgroundColor: color.hex }}
+                        />
+                        <span className="text-sm font-medium text-gray-800 flex-1">{color.name}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={color.stock ?? 0}
+                          onChange={(e) => updateColorField(i, 'stock', Number(e.target.value) || 0)}
+                          placeholder="Stock"
+                          className="w-20 border border-gray-200 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                        />
+                        <span className="text-xs text-gray-400">in stock</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            removeColor(i);
+                            setColorPreviews((prev) => { const n = { ...prev }; delete n[i]; return n; });
+                            setColorNewFiles((prev) => { const n = { ...prev }; delete n[i]; return n; });
+                          }}
+                          className="text-gray-400 hover:text-red-500 cursor-pointer ml-1"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      {/* Per-color images */}
+                      <div className="grid grid-cols-5 gap-2">
+                        {previewList.map((src, j) => (
+                          <div key={j} className="relative aspect-square rounded-md overflow-hidden border border-gray-200 group">
+                            <img src={src} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeColorImage(i, j)}
+                              className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            >
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="aspect-square rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-white transition-colors">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              handleColorImageSelect(i, e.target.files);
+                              e.target.value = '';
+                            }}
+                          />
+                          <Plus size={16} className="text-gray-400" />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Size-wise Stock */}

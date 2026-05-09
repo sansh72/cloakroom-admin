@@ -10,6 +10,7 @@ import ReviewsPage from './pages/ReviewsPage';
 import CustomizationPage from './pages/CustomizationPage';
 import HeroImagesPage from './pages/HeroImagesPage';
 import ClientsPage from './pages/ClientsPage';
+import PincodesPage from './pages/PincodesPage';
 
 function LoginRoute() {
   const { currentUser, isAdmin, loading } = useAuth();
@@ -33,6 +34,7 @@ function App() {
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="hero-images" element={<HeroImagesPage />} />
             <Route path="clients" element={<ClientsPage />} />
+            <Route path="pincodes" element={<PincodesPage />} />
           </Route>
         </Routes>
       </AuthProvider>
