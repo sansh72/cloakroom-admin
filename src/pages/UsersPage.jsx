@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { getAllUsers, deleteUser } from '../services/userService';
-import { Search, Trash2, KeyRound, RefreshCw, X } from 'lucide-react';
+import { Search, Trash2, KeyRound, RefreshCw, X, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -12,6 +12,7 @@ export default function UsersPage() {
   const [resetModal, setResetModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [sortOrder, setSortOrder] = useState('newest');
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -48,14 +49,20 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const term = search.toLowerCase();
-    return (
-      (u.displayName || '').toLowerCase().includes(term) ||
-      (u.email || '').toLowerCase().includes(term) ||
-      (u.phoneNumber || '').includes(term)
-    );
-  });
+  const filteredUsers = users
+    .filter((u) => {
+      const term = search.toLowerCase();
+      return (
+        (u.displayName || '').toLowerCase().includes(term) ||
+        (u.email || '').toLowerCase().includes(term) ||
+        (u.phoneNumber || '').includes(term)
+      );
+    })
+    .sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortOrder === 'newest' ? bTime - aTime : aTime - bTime;
+    });
 
   return (
     <div>
