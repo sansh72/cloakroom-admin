@@ -175,6 +175,31 @@ export default function ReviewsPage() {
 
                   <p className="text-gray-700 text-sm">"{review.message}"</p>
 
+                  {(review.company || review.useCase) && (
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {review.company && (
+                        <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{review.company}</span>
+                      )}
+                      {review.useCase && (
+                        <span className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded">{review.useCase}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {review.photo && (
+                    <a
+                      href={review.photo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-3 group"
+                      title="Open full image"
+                    >
+                      <div className="w-20 h-20 rounded-lg overflow-hidden border border-gray-200 group-hover:border-gray-400 transition-colors">
+                        <img src={review.photo} alt="Customer-submitted" className="w-full h-full object-cover" />
+                      </div>
+                    </a>
+                  )}
+
                   {review.createdAt && (
                     <p className="text-xs text-gray-400 mt-2">
                       {review.createdAt?.toDate?.()

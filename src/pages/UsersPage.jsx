@@ -118,7 +118,17 @@ export default function UsersPage() {
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-5 py-3 font-medium text-gray-500">User</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Email / Phone</th>
-                <th className="text-left px-5 py-3 font-medium text-gray-500">Joined</th>
+                <th className="text-left px-5 py-3 font-medium text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => setSortOrder((o) => (o === 'newest' ? 'oldest' : 'newest'))}
+                    className="inline-flex items-center gap-1 hover:text-gray-700 cursor-pointer select-none"
+                    title={sortOrder === 'newest' ? 'Newest first — click for oldest' : 'Oldest first — click for newest'}
+                  >
+                    Joined
+                    {sortOrder === 'newest' ? <ArrowDown size={14} /> : <ArrowUp size={14} />}
+                  </button>
+                </th>
                 <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
