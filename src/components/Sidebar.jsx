@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Users, Package, ShoppingBag, Shield, LogOut, Star, Palette, ImagePlay, Building2, MapPin } from 'lucide-react';
+import { Users, Package, ShoppingBag, Shield, LogOut, Star, Palette, ImagePlay, Building2, MapPin, Layers, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
@@ -12,6 +12,8 @@ const navItems = [
   { to: '/hero-images', icon: ImagePlay, label: 'Hero Images' },
   { to: '/clients', icon: Building2, label: 'Clients' },
   { to: '/pincodes', icon: MapPin, label: 'Pincodes' },
+  { to: '/bulk-catalog', icon: Layers, label: 'Bulk Catalog' },
+  { to: '/institutions', icon: GraduationCap, label: 'Institutions' },
 ];
 
 export default function Sidebar() {

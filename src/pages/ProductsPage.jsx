@@ -48,7 +48,7 @@ const GRAPHIC_TEES_SEED = [
   { name: 'Wifi vibe', image: `${CDN}/wifi-vibe.png`, tags: ['Tech Humor'] },
 ];
 
-const CATEGORIES = ['tshirt', 'hoodie', 'trouser', 'polo', 'roundneck', 'varsity', 'sweatshirt'];
+const CATEGORIES = ['tshirt', 'hoodie', 'bottomWear', 'polo', 'roundneck', 'varsity', 'sweatshirt'];
 const CATEGORY_LABELS = { tshirt: 'Graphic Tees' };
 const GENDERS = ['men', 'women', 'unisex', 'kids'];
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
@@ -82,6 +82,7 @@ const EMPTY_FORM = {
   material: '',
   fit: '',
   sizeAndFit: '',
+  care: '',
   sizeStock: {},
   tags: [],
 };
@@ -468,6 +469,7 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         material: product.material || '',
         fit: product.fit || '',
         sizeAndFit: product.sizeAndFit || '',
+        care: Array.isArray(product.care) ? product.care.join('\n') : (product.care || ''),
         sizeStock: product.sizeStock || {},
         tags: product.tags || [],
       };
@@ -696,6 +698,10 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
         material: form.material.trim() || null,
         fit: form.fit || null,
         sizeAndFit: form.sizeAndFit.trim() || null,
+        care: (() => {
+          const items = form.care.split('\n').map((s) => s.trim()).filter(Boolean);
+          return items.length > 0 ? items : null;
+        })(),
         sizeStock,
         stockCount: totalStock,
         tags: form.tags.length > 0 ? form.tags : null,
@@ -851,6 +857,19 @@ function ProductFormModal({ product, onClose, onSaved, onError }) {
               placeholder="e.g. Model is 6'0 wearing size L — true to size, regular fit"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             />
+          </div>
+
+          {/* Care Instructions */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Care Instructions <span className="text-gray-400">optional</span></label>
+            <textarea
+              value={form.care}
+              onChange={(e) => handleChange('care', e.target.value)}
+              rows={4}
+              placeholder={"One instruction per line, e.g.\nMachine wash cold\nTumble dry low\nDo not bleach\nIron on low heat"}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+            <p className="mt-1 text-xs text-gray-400">Each line becomes a separate care point on the product page.</p>
           </div>
 
           {/* Tags */}

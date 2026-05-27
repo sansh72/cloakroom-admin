@@ -11,6 +11,8 @@ import CustomizationPage from './pages/CustomizationPage';
 import HeroImagesPage from './pages/HeroImagesPage';
 import ClientsPage from './pages/ClientsPage';
 import PincodesPage from './pages/PincodesPage';
+import BulkCatalogPage from './pages/BulkCatalogPage';
+import InstitutionsPage from './pages/InstitutionsPage';
 
 function LoginRoute() {
   const { currentUser, isAdmin, loading } = useAuth();
@@ -35,6 +37,8 @@ function App() {
             <Route path="hero-images" element={<HeroImagesPage />} />
             <Route path="clients" element={<ClientsPage />} />
             <Route path="pincodes" element={<PincodesPage />} />
+            <Route path="bulk-catalog" element={<BulkCatalogPage />} />
+            <Route path="institutions" element={<InstitutionsPage />} />
           </Route>
         </Routes>
       </AuthProvider>

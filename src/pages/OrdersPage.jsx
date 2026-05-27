@@ -234,6 +234,24 @@ export default function OrdersPage() {
                 {/* Expanded details */}
                 {isExpanded && (
                   <div className="border-t border-gray-100 px-5 py-5 bg-gray-50/30">
+                    {/* Cancellation reason banner — only when order is cancelled and a reason exists */}
+                    {String(order.status || '').toLowerCase() === 'cancelled' && order.cancellationReason && (
+                      <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3">
+                        <p className="text-[11px] uppercase tracking-wider text-red-700 font-semibold mb-1">
+                          Cancellation reason
+                        </p>
+                        <p className="text-sm text-red-900">{order.cancellationReason}</p>
+                        {order.cancelledAt && (
+                          <p className="text-[11px] text-red-700/80 mt-1.5">
+                            Cancelled on{' '}
+                            {(order.cancelledAt?.toDate?.() || order.cancelledAt instanceof Date
+                              ? (order.cancelledAt?.toDate?.() || order.cancelledAt)
+                              : null
+                            )?.toLocaleString?.('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) || ''}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {/* Shipping Address */}
                       <div>
