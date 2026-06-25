@@ -112,6 +112,21 @@ export const updateOrderTrackingStatus = async (orderId, newStatus, notes, addit
   });
 };
 
+// ─── Upload/replace a per-product invoice on an order ───
+// itemKey is the product id (or `item_<index>` fallback) so each line item
+// can carry its own invoice. Stored on the order doc under `invoices.<itemKey>`.
+export const setOrderInvoice = async (orderId, itemKey, invoice) => {
+  const orderRef = doc(db, ORDERS_COLLECTION, orderId);
+  await updateDoc(orderRef, {
+    [`invoices.${itemKey}`]: {
+      url: invoice.url,
+      fileName: invoice.fileName || '',
+      uploadedAt: serverTimestamp(),
+    },
+    updatedAt: serverTimestamp(),
+  });
+};
+
 // ─── Update order price (for custom orders) ───
 export const updateOrderPrice = async (orderId, newPrice) => {
   const orderRef = doc(db, ORDERS_COLLECTION, orderId);

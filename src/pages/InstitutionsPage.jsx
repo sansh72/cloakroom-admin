@@ -19,18 +19,20 @@ import {
 
 const COLLECTION = 'institutions';
 
-// Seed data — matches the hardcoded list currently on Home.tsx
+// Seed data — logos hosted on Cloudinary (uploaded via upload-institutions.mjs).
+// Absolute URLs so they render in both the admin app and the storefront;
+// local /Carousel/* paths only exist in the storefront's public folder.
 const SEED = [
-  { name: 'AIIMS Raipur',      image: '/Carousel/AIIMS Raipur.jpg',     order: 1 },
-  { name: 'IIM Udaipur',       image: '/Carousel/IIMU_Logo.jpg',         order: 2 },
-  { name: 'IIT Gandhinagar',   image: '/Carousel/IIT GandhiNagar.png',   order: 3 },
-  { name: 'IIT Mandi',         image: '/Carousel/IIT Mandi.jpg',         order: 4 },
-  { name: 'IIT Roorkee',       image: '/Carousel/IIT Roorkee.jpg',       order: 5 },
-  { name: 'IIT Ropar',         image: '/Carousel/IIT Ropar.jpg',         order: 6 },
-  { name: 'NIT Raipur',        image: '/Carousel/NIT Raipur.png',        order: 7 },
-  { name: 'IIT Bhilai',        image: '/Carousel/IIT_Bhilai.png',        order: 8 },
-  { name: 'IIT Madras',        image: '/Carousel/IIT_madras.png',        order: 9 },
-  { name: 'NIT Jalandhar',     image: '/Carousel/NIT_Jalandar.png',      order: 10 },
+  { name: 'AIIMS Raipur',      image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056591/institutions/aiims-raipur.jpg',    order: 1 },
+  { name: 'IIM Udaipur',       image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056593/institutions/iim-udaipur.jpg',     order: 2 },
+  { name: 'IIT Gandhinagar',   image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056595/institutions/iit-gandhinagar.png', order: 3 },
+  { name: 'IIT Mandi',         image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056599/institutions/iit-mandi.jpg',       order: 4 },
+  { name: 'IIT Roorkee',       image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056603/institutions/iit-roorkee.jpg',     order: 5 },
+  { name: 'IIT Ropar',         image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056605/institutions/iit-ropar.jpg',       order: 6 },
+  { name: 'NIT Raipur',        image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056607/institutions/nit-raipur.png',      order: 7 },
+  { name: 'IIT Bhilai',        image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056609/institutions/iit-bhilai.png',      order: 8 },
+  { name: 'IIT Madras',        image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056612/institutions/iit-madras.png',      order: 9 },
+  { name: 'NIT Jalandhar',     image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782056614/institutions/nit-jalandhar.png',   order: 10 },
 ];
 
 export default function InstitutionsPage() {
@@ -81,14 +83,30 @@ export default function InstitutionsPage() {
   };
 
   const seedDefaults = async () => {
-    if (!window.confirm('Seed default institutions? Adds them as new docs (duplicates if already present).')) return;
+    if (!window.confirm('Seed / refresh default institutions?\n\nExisting ones (matched by name) get their logo updated to the Cloudinary URL; any missing ones are added. No duplicates.')) return;
     setSeeding(true);
     try {
+      const snap = await getDocs(collection(db, COLLECTION));
+      const byName = new Map(
+        snap.docs.map((d) => [(d.data().name || '').trim().toLowerCase(), { id: d.id, ...d.data() }])
+      );
+      let added = 0, updated = 0;
       for (const inst of SEED) {
-        await addDoc(collection(db, COLLECTION), { ...inst, createdAt: serverTimestamp() });
+        const match = byName.get(inst.name.trim().toLowerCase());
+        if (match) {
+          await updateDoc(doc(db, COLLECTION, match.id), {
+            image: inst.image,
+            order: inst.order,
+            updatedAt: serverTimestamp(),
+          });
+          updated++;
+        } else {
+          await addDoc(collection(db, COLLECTION), { ...inst, createdAt: serverTimestamp() });
+          added++;
+        }
       }
       await load();
-      showToast('Seeded defaults');
+      showToast(`Seed done — ${updated} updated, ${added} added`);
     } catch (err) {
       console.error(err);
       showToast('Seed failed');

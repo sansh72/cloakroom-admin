@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getMergedOrders, updateOrderTrackingStatus, updateOrderPrice } from '../services/orderService';
+import { getMergedOrders, updateOrderTrackingStatus, updateOrderPrice, setOrderInvoice } from '../services/orderService';
+import { uploadImage } from '../services/cloudinaryService';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import {
@@ -15,7 +16,15 @@ import {
   Clock,
   X,
   Download,
+  Upload,
+  FileText,
 } from 'lucide-react';
+
+// Per-line-item key so each product in an order carries its own invoice.
+// Matches the key the storefront uses to look the invoice back up.
+function getItemKey(item, index) {
+  return item.product?.id || `item_${index}`;
+}
 
 const ORDER_STATUSES = ['PENDING', 'ACCEPTED', 'PREPARING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
@@ -338,20 +347,35 @@ export default function OrdersPage() {
                       <div>
                         <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Items</h4>
                         {order.items && order.items.length > 0 ? (
-                          <div className="space-y-2">
-                            {order.items.map((item, i) => (
-                              <div key={i} className="flex justify-between text-sm">
-                                <span className="text-gray-700">
-                                  {item.product?.name || 'Custom Item'}{' '}
-                                  <span className="text-gray-400">
-                                    x{item.quantity} · {item.selectedSize}
-                                  </span>
-                                </span>
-                                <span className="text-gray-900 font-medium">
-                                  ₹{((item.product?.price || 0) * item.quantity).toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
+                          <div className="space-y-3">
+                            {order.items.map((item, i) => {
+                              const itemKey = getItemKey(item, i);
+                              return (
+                                <div key={i} className="space-y-1.5">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-700">
+                                      {item.product?.name || 'Custom Item'}{' '}
+                                      <span className="text-gray-400">
+                                        x{item.quantity} · {item.selectedSize}
+                                      </span>
+                                    </span>
+                                    <span className="text-gray-900 font-medium">
+                                      ₹{((item.product?.price || 0) * item.quantity).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <InvoiceUploader
+                                    orderId={order.id}
+                                    itemKey={itemKey}
+                                    existing={order.invoices?.[itemKey]}
+                                    onUploaded={() => {
+                                      fetchOrders();
+                                      showToast('Invoice uploaded');
+                                    }}
+                                    onError={(msg) => showToast(msg, 'error')}
+                                  />
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
                           <p className="text-sm text-gray-400">{isCustom ? 'Custom design order' : 'No items'}</p>
@@ -780,6 +804,62 @@ function UpdatePriceModal({ order, onClose, onUpdated, onError }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Per-product invoice upload: pushes the image blob to Cloudinary, then stores
+// the returned URL on the order doc so the storefront can offer a download.
+function InvoiceUploader({ orderId, itemKey, existing, onUploaded, onError }) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file) return;
+    try {
+      setUploading(true);
+      const url = await uploadImage(file, `invoices/${orderId}`);
+      await setOrderInvoice(orderId, itemKey, { url, fileName: file.name });
+      onUploaded?.();
+    } catch (err) {
+      console.error('Invoice upload failed:', err);
+      onError?.('Failed to upload invoice');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      {existing?.url && (
+        <a
+          href={existing.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-green-700 hover:underline"
+        >
+          <FileText size={12} />
+          Invoice
+        </a>
+      )}
+      <label
+        className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border cursor-pointer transition-colors ${
+          uploading
+            ? 'border-gray-200 text-gray-400 cursor-wait'
+            : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+        }`}
+      >
+        <Upload size={12} />
+        {uploading ? 'Uploading…' : existing?.url ? 'Replace invoice' : 'Upload invoice'}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          disabled={uploading}
+          className="hidden"
+        />
+      </label>
     </div>
   );
 }

@@ -25,6 +25,37 @@ const DEFAULT_CATEGORIES = {
   'kids': ['T-Shirts (Round Neck)', 'Sweatshirts', 'Hoodies & Track Suits', 'Polo T-Shirts (Schools & NGOs)'],
 };
 
+// ─── Fabric assets (Cloudinary) ──────────────────────────────────────────────
+// Static fabric images/descriptions uploaded via upload-fabrics.mjs. Merged onto
+// each seed fabric by name so "Seed Defaults" lands real images + copy, not just
+// names. Absolute URLs so they render in both the admin app and the storefront.
+const FABRIC_ASSETS = {
+  'Cotton 100%':               { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057321/bulk-catalog/fabrics/cotton-100.jpg',          wikiLink: 'https://en.wikipedia.org/wiki/Cotton',     description: "Pure cotton fabric is made from natural cotton fibers, offering exceptional breathability and comfort. It's hypoallergenic, soft against the skin, and perfect for everyday wear. Cotton absorbs moisture well, making it ideal for warm weather and active lifestyles." },
+  'Cotton Lycra':              { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057324/bulk-catalog/fabrics/cotton-lycra-fabric.jpg', wikiLink: 'https://en.wikipedia.org/wiki/Spandex',    description: 'A blend of cotton with 5% Lycra (spandex) creates a fabric that combines the natural comfort of cotton with added stretch and flexibility. This material maintains its shape even after repeated wear and washing, making it perfect for activewear and fitted garments.' },
+  'Oversized / Down Shoulder': { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057327/bulk-catalog/fabrics/oversized.jpg',          wikiLink: 'https://knitfabric.com/cotton-lycra-fabric-101', description: 'Experience unmatched comfort and durability with our premium heavy-GSM fabric, crafted specially for oversized tees. Made from high-quality cotton with a touch of Lycra, this fabric offers a perfect balance of structure, breathability, and stretch.' },
+  'Oversized':                 { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057327/bulk-catalog/fabrics/oversized.jpg',          wikiLink: 'https://knitfabric.com/cotton-lycra-fabric-101', description: 'Experience unmatched comfort and durability with our premium heavy-GSM fabric, crafted specially for oversized tees. Made from high-quality cotton with a touch of Lycra, this fabric offers a perfect balance of structure, breathability, and stretch.' },
+  'PC Matte':                  { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057328/bulk-catalog/fabrics/pc.jpg',                 wikiLink: 'https://en.wikipedia.org/wiki/Polyester',  description: 'Poly-Cotton Matte is a premium blend of 60% cotton and 40% polyester, offering the best of both worlds. It provides the softness and breathability of cotton with the durability and wrinkle-resistance of polyester. Perfect for professional wear and uniforms.' },
+  'Cotton Matte Lycra':        { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057330/bulk-catalog/fabrics/matte.jpg',              wikiLink: 'https://en.wikipedia.org/wiki/Lycra',      description: 'This premium fabric combines cotton matte with 5% Lycra for a luxurious feel with added stretch. It offers a refined matte finish while maintaining flexibility and comfort, ideal for high-quality polo shirts and professional apparel.' },
+  'Spun Matty':                { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057331/bulk-catalog/fabrics/spun-matte.jpg',         wikiLink: 'https://en.wikipedia.org/wiki/Textile',    description: "Spun Matty is a high-quality polyester-cotton blend fabric with a distinctive texture. It's durable, affordable, and perfect for bulk orders like school uniforms and corporate wear. The fabric resists pilling and maintains its appearance over time." },
+  'Sap Matty':                 { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057334/bulk-catalog/fabrics/sap.jpg',                wikiLink: 'https://en.wikipedia.org/wiki/Textile',    description: "Sap Matty is a poly-blend cotton fabric known for its smooth texture and excellent color fastness. It's highly durable and long-lasting, making it ideal for professional uniforms and corporate wear. The fabric maintains its appearance even after repeated washing." },
+  'Cotton Fleece':             { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057338/bulk-catalog/fabrics/cotton.jpg',             wikiLink: 'https://en.wikipedia.org/wiki/Flannel',    description: 'Flannel is a soft woven fabric, of varying fineness. Flannel was originally made from carded wool or worsted yarn, but is now often made from either wool, cotton, or synthetic fiber.' },
+  'PC Fleece':                 { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057339/bulk-catalog/fabrics/polyfleece.webp',        wikiLink: 'https://en.wikipedia.org/wiki/Polar_fleece', description: 'Polyester-Cotton Fleece is a warm, lightweight fabric perfect for hoodies and sweatshirts. It provides excellent insulation while remaining breathable. The blend makes it durable, easy to care for, and resistant to shrinking.' },
+  'Cotton Terry':              { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057340/bulk-catalog/fabrics/terry.jpg',              wikiLink: 'https://en.wikipedia.org/wiki/Terrycloth', description: "Terry cotton features loops of thread that create a highly absorbent, ultra-soft fabric. Originally used for towels, it's now popular for comfortable hoodies and loungewear. The loops trap air, providing warmth and a plush feel." },
+  'N/S':                       { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057342/bulk-catalog/fabrics/ns.jpg',                 wikiLink: 'https://en.wikipedia.org/wiki/Textile',    description: 'Non-Shrink (N/S) fabric is specially treated to maintain its original size and shape even after multiple washes. This premium fabric is ideal for professional uniforms and garments that require consistent fit. The advanced manufacturing process ensures dimensional stability while maintaining softness and breathability.' },
+  'Spun Fleece':               { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057344/bulk-catalog/fabrics/spun-fleece.jpg',        wikiLink: 'https://madhusudanfabrics.com/product/spun-fleece-fabric/', description: 'Spun Fleece Fabric is a type of polyester fleece fabric that is made using a combination of polyester yarns and a special processing technique. This gives the fabric its soft, warm, and comfortable feel.' },
+  'Terry Cotton':              { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057346/bulk-catalog/fabrics/terrycot.jpg',           wikiLink: 'https://en.wikipedia.org/wiki/Terrycloth', description: "Terry Cotton is ultra-soft and warm, making it perfect for kids' hoodies and loungewear. The looped texture provides excellent warmth and comfort. Highly absorbent and gentle on children's delicate skin." },
+  'Spun Matte':                { image: 'https://res.cloudinary.com/dlxv7oikk/image/upload/v1782057347/bulk-catalog/fabrics/spunm.jpg',              wikiLink: 'https://en.wikipedia.org/wiki/Textile',    description: 'Spun Matte is an affordable, durable fabric perfect for school uniforms. It maintains its appearance through repeated washing and daily wear. The matte finish gives a professional look suitable for educational institutions and NGOs.' },
+};
+
+// Merge Cloudinary image/description/wikiLink onto a seed category's fabrics by name.
+const withFabricAssets = (cat) => ({
+  ...cat,
+  items: (cat.items || []).map((it) => ({
+    ...it,
+    fabrics: (it.fabrics || []).map((f) => ({ ...f, ...(FABRIC_ASSETS[f.name] || {}) })),
+  })),
+});
+
 // ─── Seed data (matches the original hardcoded BulkOrders.tsx) ────────────────
 const SEED_CATEGORIES = [
   {
@@ -221,14 +252,26 @@ export default function BulkCatalogPage() {
   };
 
   const seedDefaults = async () => {
-    if (!window.confirm('Seed default categories? This adds them as new docs (duplicates if already present).')) return;
+    if (!window.confirm('Seed / refresh default categories?\n\nExisting ones (matched by audience + category) get refreshed with fabric images & details; missing ones are added. No duplicates.')) return;
     setSeeding(true);
     try {
-      for (const c of SEED_CATEGORIES) {
-        await addDoc(collection(db, COLLECTION), { ...c, createdAt: serverTimestamp() });
+      const snap = await getDocs(collection(db, COLLECTION));
+      const keyOf = (c) => `${(c.audience || '').trim()}|${(c.category || '').trim().toLowerCase()}`;
+      const byKey = new Map(snap.docs.map((d) => [keyOf(d.data()), { id: d.id, ...d.data() }]));
+      let added = 0, updated = 0;
+      for (const raw of SEED_CATEGORIES) {
+        const c = withFabricAssets(raw); // attach Cloudinary images + descriptions
+        const match = byKey.get(keyOf(c));
+        if (match) {
+          await updateDoc(doc(db, COLLECTION, match.id), { ...c, updatedAt: serverTimestamp() });
+          updated++;
+        } else {
+          await addDoc(collection(db, COLLECTION), { ...c, createdAt: serverTimestamp() });
+          added++;
+        }
       }
       await loadCategories();
-      showToast('Seeded default categories');
+      showToast(`Seed done — ${updated} updated, ${added} added`);
     } catch (err) {
       console.error(err);
       showToast('Seed failed');

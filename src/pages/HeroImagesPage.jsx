@@ -6,11 +6,11 @@ import { Upload, X, ImageIcon, Loader2, Plus } from 'lucide-react';
 const CLOUDINARY_CLOUD = 'dlxv7oikk';
 const CLOUDINARY_PRESET = 'ml_default';
 
-async function uploadToCloudinary(file) {
+async function uploadToCloudinary(file, folder = 'hero') {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_PRESET);
-  formData.append('folder', 'hero');
+  formData.append('folder', folder);
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
     method: 'POST',
     body: formData,
@@ -20,27 +20,29 @@ async function uploadToCloudinary(file) {
   return data.secure_url;
 }
 
-export default function HeroImagesPage() {
+const FALLBACK_URLS = [
+  'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529278/hero/cloakroom-1.png',
+  'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529293/hero/cloakroom-4.png',
+  'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529297/hero/cloakroom-main.png',
+];
+
+// One self-contained hero carousel manager, bound to a single appConfig doc.
+// Reused for both the main storefront hero and the B2B landing hero.
+function HeroSection({ docId, folder, title, description, saveLabel }) {
   const [urls, setUrls] = useState([]);
   const [uploading, setUploading] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const FALLBACK_URLS = [
-    'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529278/hero/cloakroom-1.png',
-    'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529293/hero/cloakroom-4.png',
-    'https://res.cloudinary.com/dlxv7oikk/image/upload/v1776529297/hero/cloakroom-main.png',
-  ];
-
   useEffect(() => {
-    getDoc(doc(db, 'appConfig', 'heroImages')).then(snap => {
+    getDoc(doc(db, 'appConfig', docId)).then(snap => {
       if (snap.exists()) {
         setUrls(snap.data().urls || FALLBACK_URLS);
       } else {
         setUrls(FALLBACK_URLS);
       }
     });
-  }, []);
+  }, [docId]);
 
   const setUploadingAt = (index, value) =>
     setUploading(prev => prev.map((v, i) => i === index ? value : v));
@@ -49,7 +51,7 @@ export default function HeroImagesPage() {
     if (!file) return;
     setUploadingAt(index, true);
     try {
-      const url = await uploadToCloudinary(file);
+      const url = await uploadToCloudinary(file, folder);
       setUrls(prev => prev.map((v, i) => i === index ? url : v));
     } catch (e) {
       alert('Upload failed: ' + e.message);
@@ -76,7 +78,7 @@ export default function HeroImagesPage() {
     }
     setSaving(true);
     try {
-      await setDoc(doc(db, 'appConfig', 'heroImages'), { urls: nonEmpty });
+      await setDoc(doc(db, 'appConfig', docId), { urls: nonEmpty });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
@@ -87,12 +89,10 @@ export default function HeroImagesPage() {
   };
 
   return (
-    <div className="p-8 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Hero Images</h1>
-        <p className="text-gray-500 mt-1">
-          Add as many slides as you want. Each one shows as a dot in the carousel, cycling every 5 seconds.
-        </p>
+    <section>
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <p className="text-gray-500 mt-1 text-sm">{description}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-6">
@@ -182,8 +182,39 @@ export default function HeroImagesPage() {
         className="flex items-center gap-2 bg-gray-900 text-white px-6 py-2.5 rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors font-medium"
       >
         {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-        {saved ? '✓ Saved!' : saving ? 'Saving...' : 'Save Hero Images'}
+        {saved ? '✓ Saved!' : saving ? 'Saving...' : saveLabel}
       </button>
+    </section>
+  );
+}
+
+export default function HeroImagesPage() {
+  return (
+    <div className="p-8 max-w-5xl">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Hero Images</h1>
+        <p className="text-gray-500 mt-1">
+          Add as many slides as you want. Each one shows as a dot in the carousel, cycling automatically.
+        </p>
+      </div>
+
+      <HeroSection
+        docId="heroImages"
+        folder="hero"
+        title="Main Hero (Retail Homepage)"
+        description="Shown in the carousel on the main storefront homepage."
+        saveLabel="Save Hero Images"
+      />
+
+      <div className="my-10 border-t border-gray-200" />
+
+      <HeroSection
+        docId="b2bHeroImages"
+        folder="hero-b2b"
+        title="B2B Hero (Business Landing)"
+        description="Shown in the carousel on the B2B landing page (/b2b)."
+        saveLabel="Save B2B Hero Images"
+      />
     </div>
   );
 }
