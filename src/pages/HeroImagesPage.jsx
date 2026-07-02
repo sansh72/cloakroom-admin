@@ -28,7 +28,7 @@ const FALLBACK_URLS = [
 
 // One self-contained hero carousel manager, bound to a single appConfig doc.
 // Reused for both the main storefront hero and the B2B landing hero.
-function HeroSection({ docId, folder, title, description, saveLabel }) {
+function HeroSection({ docId, folder, title, description, saveLabel, aspectClass = 'aspect-video', fallback = FALLBACK_URLS }) {
   const [urls, setUrls] = useState([]);
   const [uploading, setUploading] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -37,9 +37,9 @@ function HeroSection({ docId, folder, title, description, saveLabel }) {
   useEffect(() => {
     getDoc(doc(db, 'appConfig', docId)).then(snap => {
       if (snap.exists()) {
-        setUrls(snap.data().urls || FALLBACK_URLS);
+        setUrls(snap.data().urls || fallback);
       } else {
-        setUrls(FALLBACK_URLS);
+        setUrls(fallback);
       }
     });
   }, [docId]);
@@ -109,7 +109,7 @@ function HeroSection({ docId, folder, title, description, saveLabel }) {
               </button>
             </div>
 
-            <div className="relative w-full aspect-video rounded-xl border-2 border-dashed border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center group">
+            <div className={`relative w-full ${aspectClass} rounded-xl border-2 border-dashed border-gray-300 overflow-hidden bg-gray-50 flex items-center justify-center group`}>
               {uploading[index] ? (
                 <div className="flex flex-col items-center gap-2 text-gray-400">
                   <Loader2 className="w-8 h-8 animate-spin" />
@@ -152,7 +152,7 @@ function HeroSection({ docId, folder, title, description, saveLabel }) {
           {urls.length > 0 && <p className="text-sm font-medium text-transparent select-none">–</p>}
           <button
             onClick={handleAddSlot}
-            className="w-full aspect-video rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
+            className={`w-full ${aspectClass} rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors`}
           >
             <Plus className="w-8 h-8" />
             <span className="text-xs font-medium">Add Slide</span>
@@ -201,9 +201,21 @@ export default function HeroImagesPage() {
       <HeroSection
         docId="heroImages"
         folder="hero"
-        title="Main Hero (Retail Homepage)"
-        description="Shown in the carousel on the main storefront homepage."
-        saveLabel="Save Hero Images"
+        title="Main Hero — Desktop (Retail Homepage)"
+        description="Shown on desktop / wide screens. Upload landscape 16:9 images at 1920×1080."
+        saveLabel="Save Desktop Hero Images"
+      />
+
+      <div className="my-10 border-t border-gray-200" />
+
+      <HeroSection
+        docId="heroImagesMobile"
+        folder="hero-mobile"
+        title="Main Hero — Mobile (Retail Homepage)"
+        description="Shown on phones. Upload square 1:1 images at 1080×1080 so nothing gets cropped. If left empty, the desktop images are used on mobile too."
+        saveLabel="Save Mobile Hero Images"
+        aspectClass="aspect-square"
+        fallback={[]}
       />
 
       <div className="my-10 border-t border-gray-200" />
@@ -212,8 +224,9 @@ export default function HeroImagesPage() {
         docId="b2bHeroImages"
         folder="hero-b2b"
         title="B2B Hero (Business Landing)"
-        description="Shown in the carousel on the B2B landing page (/b2b)."
+        description="Shown in the carousel on the B2B landing page (/b2b). Upload 1400×1100 images (14:11) — the same image is used on both desktop and mobile."
         saveLabel="Save B2B Hero Images"
+        aspectClass="aspect-[14/11]"
       />
     </div>
   );
