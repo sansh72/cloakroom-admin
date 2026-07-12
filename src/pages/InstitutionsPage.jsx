@@ -53,7 +53,26 @@ export default function InstitutionsPage() {
     try {
       const q = query(collection(db, COLLECTION), orderBy('order', 'asc'));
       const snap = await getDocs(q);
-      setInstitutions(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      let docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      // Self-heal: older docs store relative "/Carousel/..." paths that only exist
+      // in the storefront's public folder — broken on the admin domain. Swap any
+      // such doc to its Cloudinary URL from SEED (matched by name) and persist.
+      const broken = docs.filter((c) => c.image?.startsWith('/'));
+      if (broken.length) {
+        const bySeedName = new Map(SEED.map((s) => [s.name.trim().toLowerCase(), s.image]));
+        await Promise.all(
+          broken.map(async (c) => {
+            const url = bySeedName.get((c.name || '').trim().toLowerCase());
+            if (!url) return;
+            await updateDoc(doc(db, COLLECTION, c.id), { image: url, updatedAt: serverTimestamp() });
+            c.image = url;
+          })
+        );
+        docs = [...docs];
+      }
+
+      setInstitutions(docs);
     } catch (err) {
       console.error('Failed to load institutions:', err);
     } finally {

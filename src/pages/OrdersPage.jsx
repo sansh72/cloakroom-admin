@@ -648,6 +648,9 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
     : [{ key: 'custom_order', label: 'Order invoice' }];
   const missingInvoiceCount = invoiceEntries.filter((e) => !invoices[e.key]).length;
   const shipBlocked = status === 'SHIPPED' && missingInvoiceCount > 0;
+  // DELIVERED only after SHIPPED — shipping is where the invoice requirement
+  // is enforced, so skipping straight to delivered would bypass it.
+  const deliverBlocked = status === 'DELIVERED' && currentStatus !== 'SHIPPED';
 
   const handleSave = async () => {
     if (status === currentStatus && !trackingNumber) return;
@@ -655,6 +658,10 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
       onError(
         `Upload an invoice for ${missingInvoiceCount === 1 ? 'the remaining item' : `all ${missingInvoiceCount} remaining items`} before marking as shipped`
       );
+      return;
+    }
+    if (deliverBlocked) {
+      onError('Mark the order as Shipped (with invoices) before marking it Delivered');
       return;
     }
     try {
@@ -697,12 +704,22 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
             onChange={(e) => setStatus(e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
           >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            {ORDER_STATUSES.map((s) => {
+              const locked = s === 'DELIVERED' && currentStatus !== 'SHIPPED';
+              return (
+                <option key={s} value={s} disabled={locked}>
+                  {s}
+                  {locked ? ' (mark as Shipped first)' : ''}
+                </option>
+              );
+            })}
           </select>
+          {deliverBlocked && (
+            <p className="text-xs text-amber-700 mt-1.5">
+              An order can only be Delivered after it has been Shipped — invoices are attached at the
+              Shipped step.
+            </p>
+          )}
         </div>
 
         {status === 'SHIPPED' && (
@@ -783,7 +800,7 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || shipBlocked}
+            disabled={saving || shipBlocked || deliverBlocked}
             className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? 'Updating...' : 'Update Status'}
