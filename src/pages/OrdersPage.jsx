@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getMergedOrders, updateOrderTrackingStatus, updateOrderPrice, setOrderInvoice } from '../services/orderService';
+import { getMergedOrders, updateOrderTrackingStatus, updateOrderPrice, setOrderInvoice, getOrderCustomerLabel } from '../services/orderService';
 import { uploadImage } from '../services/cloudinaryService';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -94,6 +94,8 @@ export default function OrdersPage() {
     const matchesSearch =
       (o.id || '').toLowerCase().includes(term) ||
       (o.userEmail || '').toLowerCase().includes(term) ||
+      (o.userPhone || '').toLowerCase().includes(term) ||
+      (o.userName || '').toLowerCase().includes(term) ||
       (o.shippingAddress?.fullName || '').toLowerCase().includes(term);
     const status = getDisplayStatus(o);
     const matchesStatus = statusFilter === 'ALL' || status === statusFilter;
@@ -208,7 +210,7 @@ export default function OrdersPage() {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900">{order.userEmail || 'Unknown'}</p>
+                      <p className="text-sm font-semibold text-gray-900">{getOrderCustomerLabel(order)}</p>
                       {isCustom && (
                         <span className="px-2 py-0.5 bg-violet-100 text-violet-700 rounded text-xs font-medium">
                           Custom
@@ -377,8 +379,22 @@ export default function OrdersPage() {
                               );
                             })}
                           </div>
+                        ) : isCustom ? (
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm text-gray-400">Custom design order</p>
+                            <InvoiceUploader
+                              orderId={order.id}
+                              itemKey="custom_order"
+                              existing={order.invoices?.custom_order}
+                              onUploaded={() => {
+                                fetchOrders();
+                                showToast('Invoice uploaded');
+                              }}
+                              onError={(msg) => showToast(msg, 'error')}
+                            />
+                          </div>
                         ) : (
-                          <p className="text-sm text-gray-400">{isCustom ? 'Custom design order' : 'No items'}</p>
+                          <p className="text-sm text-gray-400">No items</p>
                         )}
                         {order.total != null && (
                           <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between text-sm font-semibold">
@@ -614,14 +630,33 @@ export default function OrdersPage() {
 
 function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }) {
   const [status, setStatus] = useState(currentStatus);
-  const [notes, setNotes] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [courierService, setCourierService] = useState('');
   const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [saving, setSaving] = useState(false);
+  // Invoices uploaded from inside this modal (the `order` prop is a stale snapshot).
+  const [localInvoices, setLocalInvoices] = useState({});
+
+  // Every line item needs an uploaded invoice before the order can ship.
+  // Custom orders have no line items — they carry a single order-level invoice.
+  const invoices = { ...order.invoices, ...localInvoices };
+  const invoiceEntries = (order.items || []).length
+    ? order.items.map((item, i) => ({
+        key: getItemKey(item, i),
+        label: item.product?.name || `Item ${i + 1}`,
+      }))
+    : [{ key: 'custom_order', label: 'Order invoice' }];
+  const missingInvoiceCount = invoiceEntries.filter((e) => !invoices[e.key]).length;
+  const shipBlocked = status === 'SHIPPED' && missingInvoiceCount > 0;
 
   const handleSave = async () => {
-    if (status === currentStatus && !notes && !trackingNumber) return;
+    if (status === currentStatus && !trackingNumber) return;
+    if (shipBlocked) {
+      onError(
+        `Upload an invoice for ${missingInvoiceCount === 1 ? 'the remaining item' : `all ${missingInvoiceCount} remaining items`} before marking as shipped`
+      );
+      return;
+    }
     try {
       setSaving(true);
       const extra = {};
@@ -629,7 +664,7 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
       if (courierService) extra.courierService = courierService;
       if (estimatedDelivery) extra.estimatedDelivery = new Date(estimatedDelivery);
 
-      await updateOrderTrackingStatus(order.id, status, notes || undefined, extra);
+      await updateOrderTrackingStatus(order.id, status, undefined, extra);
       onUpdated();
     } catch (err) {
       onError('Failed to update status');
@@ -670,6 +705,37 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
           </select>
         </div>
 
+        {status === 'SHIPPED' && (
+          <div className={`mb-4 p-3 rounded-lg border ${shipBlocked ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Invoices — required to ship
+            </p>
+            <div className="space-y-2">
+              {invoiceEntries.map((entry) => (
+                <div key={entry.key} className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-700 truncate">{entry.label}</p>
+                  <InvoiceUploader
+                    orderId={order.id}
+                    itemKey={entry.key}
+                    existing={invoices[entry.key]}
+                    onUploaded={(inv) =>
+                      setLocalInvoices((prev) => ({ ...prev, [entry.key]: inv }))
+                    }
+                    onError={onError}
+                  />
+                </div>
+              ))}
+            </div>
+            {shipBlocked && (
+              <p className="text-xs text-amber-800 mt-2">
+                {missingInvoiceCount === 1
+                  ? 'Upload the invoice above to enable shipping.'
+                  : `Upload all ${missingInvoiceCount} invoices above to enable shipping.`}
+              </p>
+            )}
+          </div>
+        )}
+
         {(status === 'SHIPPED' || status === 'DELIVERED') && (
           <>
             <div className="mb-4">
@@ -708,18 +774,7 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
           </div>
         )}
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional notes visible to customer..."
-            rows={3}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
-          />
-        </div>
-
-        <div className="flex gap-3">
+        <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
@@ -728,8 +783,8 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
           </button>
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 cursor-pointer"
+            disabled={saving || shipBlocked}
+            className="flex-1 px-4 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? 'Updating...' : 'Update Status'}
           </button>
@@ -821,7 +876,7 @@ function InvoiceUploader({ orderId, itemKey, existing, onUploaded, onError }) {
       setUploading(true);
       const url = await uploadImage(file, `invoices/${orderId}`);
       await setOrderInvoice(orderId, itemKey, { url, fileName: file.name });
-      onUploaded?.();
+      onUploaded?.({ url, fileName: file.name });
     } catch (err) {
       console.error('Invoice upload failed:', err);
       onError?.('Failed to upload invoice');

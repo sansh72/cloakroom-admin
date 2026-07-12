@@ -202,7 +202,7 @@ export default function HeroImagesPage() {
         docId="heroImages"
         folder="hero"
         title="Main Hero — Desktop (Retail Homepage)"
-        description="Shown on desktop / wide screens. Upload landscape 16:9 images at 1920×1080."
+        description="Shown on desktop / wide screens. Upload wide landscape images at 1920×800 (~2.4:1) — the homepage crops to a short band, so 16:9 uploads lose the top and bottom. Keep the subject centered."
         saveLabel="Save Desktop Hero Images"
       />
 

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Users, Package, ShoppingBag, Shield, LogOut, Star, Palette, ImagePlay, Building2, MapPin, Layers, GraduationCap } from 'lucide-react';
+import { Users, Package, ShoppingBag, Shield, LogOut, Star, MessageSquareText, Palette, ImagePlay, Building2, MapPin, Layers, GraduationCap } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/products', icon: ShoppingBag, label: 'Products' },
   { to: '/allowed-users', icon: Shield, label: 'Allowed Users' },
   { to: '/reviews', icon: Star, label: 'Reviews' },
+  { to: '/product-reviews', icon: MessageSquareText, label: 'Product Reviews' },
   { to: '/customization', icon: Palette, label: 'Customization' },
   { to: '/hero-images', icon: ImagePlay, label: 'Hero Images' },
   { to: '/clients', icon: Building2, label: 'Clients' },

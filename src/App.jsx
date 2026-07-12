@@ -7,6 +7,7 @@ import OrdersPage from './pages/OrdersPage';
 import ProductsPage from './pages/ProductsPage';
 import AllowedUsersPage from './pages/AllowedUsersPage';
 import ReviewsPage from './pages/ReviewsPage';
+import ProductReviewsPage from './pages/ProductReviewsPage';
 import CustomizationPage from './pages/CustomizationPage';
 import HeroImagesPage from './pages/HeroImagesPage';
 import ClientsPage from './pages/ClientsPage';
@@ -33,6 +34,7 @@ function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="allowed-users" element={<AllowedUsersPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
+            <Route path="product-reviews" element={<ProductReviewsPage />} />
             <Route path="customization" element={<CustomizationPage />} />
             <Route path="hero-images" element={<HeroImagesPage />} />
             <Route path="clients" element={<ClientsPage />} />

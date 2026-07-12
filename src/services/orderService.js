@@ -14,6 +14,16 @@ import { db } from '../config/firebase';
 const ORDERS_COLLECTION = 'orders';
 const TRACKING_COLLECTION = 'orderTracking';
 const CUSTOM_ORDERS_COLLECTION = 'customOrders';
+const USERS_COLLECTION = 'users';
+
+// Human-readable identity for an order. Older orders placed by phone-auth
+// users carry an empty userEmail, so fall back to phone → name → address name.
+export const getOrderCustomerLabel = (order) =>
+  order.userEmail ||
+  order.userPhone ||
+  order.userName ||
+  order.shippingAddress?.fullName ||
+  'Unknown';
 
 // ─── Fetch all orders ───
 export const getAllOrders = async () => {
@@ -52,12 +62,23 @@ export const getAllCustomOrders = async () => {
   }));
 };
 
+// ─── Fetch all users, keyed by uid (for order identity fallback) ───
+const getUsersByUid = async () => {
+  const snapshot = await getDocs(collection(db, USERS_COLLECTION));
+  const map = {};
+  snapshot.docs.forEach((d) => {
+    map[d.id] = d.data();
+  });
+  return map;
+};
+
 // ─── Merge orders + tracking into a single list ───
 export const getMergedOrders = async () => {
-  const [orders, tracking, customOrders] = await Promise.all([
+  const [orders, tracking, customOrders, usersByUid] = await Promise.all([
     getAllOrders(),
     getAllOrderTracking(),
     getAllCustomOrders(),
+    getUsersByUid().catch(() => ({})),
   ]);
 
   // Build a map of tracking by orderId
@@ -72,12 +93,20 @@ export const getMergedOrders = async () => {
     customMap[c.orderId || c.id] = c;
   });
 
-  // Merge: each order gets its tracking + custom data attached
-  const merged = orders.map((order) => ({
-    ...order,
-    tracking: trackingMap[order.id] || null,
-    customOrder: customMap[order.id] || null,
-  }));
+  // Merge: each order gets its tracking + custom data attached.
+  // Orders placed by phone-auth users have an empty userEmail — recover
+  // identity (phone/name) from the users collection via userId.
+  const merged = orders.map((order) => {
+    const user = usersByUid[order.userId] || {};
+    return {
+      ...order,
+      userEmail: order.userEmail || user.email || '',
+      userPhone: order.userPhone || user.phoneNumber || '',
+      userName: order.userName || user.displayName || '',
+      tracking: trackingMap[order.id] || null,
+      customOrder: customMap[order.id] || null,
+    };
+  });
 
   // Sort newest first
   merged.sort((a, b) => b.createdAt - a.createdAt);
