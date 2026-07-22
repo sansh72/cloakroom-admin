@@ -674,7 +674,8 @@ function UpdateStatusModal({ order, currentStatus, onClose, onUpdated, onError }
       await updateOrderTrackingStatus(order.id, status, undefined, extra);
       onUpdated();
     } catch (err) {
-      onError('Failed to update status');
+      console.error('Status update failed:', err);
+      onError(`Failed to update status${err?.message ? ` — ${err.message}` : ''}`);
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@ import {
   getDocs,
   doc,
   getDoc,
+  setDoc,
   updateDoc,
   serverTimestamp,
   arrayUnion,
@@ -121,7 +122,8 @@ export const updateOrderTrackingStatus = async (orderId, newStatus, notes, addit
   const historyEntry = {
     status: newStatus,
     timestamp: new Date(),
-    notes: notes || undefined,
+    // Firestore rejects undefined field values — only include notes when present.
+    ...(notes ? { notes } : {}),
   };
 
   const updateData = {
@@ -131,7 +133,22 @@ export const updateOrderTrackingStatus = async (orderId, newStatus, notes, addit
     ...additionalData,
   };
 
-  await updateDoc(trackingRef, updateData);
+  // Some orders (typically phone sign-ins) never got a tracking doc at checkout —
+  // updateDoc throws not-found on those. Create the doc on the fly instead.
+  const trackingSnap = await getDoc(trackingRef);
+  if (trackingSnap.exists()) {
+    await updateDoc(trackingRef, updateData);
+  } else {
+    const orderSnap = await getDoc(doc(db, ORDERS_COLLECTION, orderId));
+    const order = orderSnap.exists() ? orderSnap.data() : {};
+    await setDoc(trackingRef, {
+      orderId,
+      userEmail: order.userEmail || '',
+      ...(order.userId ? { userId: order.userId } : {}),
+      timestamp: serverTimestamp(),
+      ...updateData,
+    });
+  }
 
   // Also update the legacy status field in the orders collection
   const orderRef = doc(db, ORDERS_COLLECTION, orderId);
